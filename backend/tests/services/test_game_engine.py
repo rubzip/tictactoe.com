@@ -1,6 +1,7 @@
 import pytest
 from app.core.constants import Player, GameStatus
 from app.services.game_engine import TicTacToeEngine
+from app.core.exceptions import InvalidMoveException, OccupiedCellException, GameOverException
 
 def test_init_board():
     board, turn, status = TicTacToeEngine.init_board()
@@ -43,11 +44,11 @@ def test_make_move():
 
 def test_make_move_invalid_player():
     board, turn, status = TicTacToeEngine.init_board()
-    with pytest.raises(ValueError, match="Now is X turn"):
+    with pytest.raises(InvalidMoveException, match="Now is X turn"):
         TicTacToeEngine.make_move(board, turn, Player.O, 0, 0)
 
 def test_make_move_occupied_cell():
     board = [[Player.X, Player.NONE, Player.NONE], [Player.NONE]*3, [Player.NONE]*3]
     turn = Player.O
-    with pytest.raises(ValueError, match="Occupied cell"):
+    with pytest.raises(OccupiedCellException, match="already occupied"):
         TicTacToeEngine.make_move(board, turn, Player.O, 0, 0)

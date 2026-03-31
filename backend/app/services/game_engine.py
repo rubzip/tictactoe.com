@@ -1,5 +1,6 @@
 from app.core.constants import Player, GameStatus
 from app.core.types import UsablePlayer, BoardType
+from app.core.exceptions import InvalidMoveException, OccupiedCellException, GameOverException
 
 
 class TicTacToeEngine:
@@ -42,30 +43,30 @@ class TicTacToeEngine:
         o_count = sum(row.count(Player.O) for row in board)
         
         if not (o_count + 1 >= x_count >= o_count):
-            raise ValueError("Invalid board: turn count imbalance.")
+            raise InvalidMoveException("Invalid board: turn count imbalance.")
         if x_count == o_count and turn != Player.X:
-            raise ValueError("Invalid board: turn must be X.")
+            raise InvalidMoveException("Invalid board: turn must be X.")
         if x_count > o_count and turn != Player.O:
-            raise ValueError("Invalid board: turn must be O.")
+            raise InvalidMoveException("Invalid board: turn must be O.")
 
         if status != GameStatus.KEEP_PLAYING:
             turn = Player.NONE
         elif turn == Player.NONE:
-            raise ValueError("Game is ongoing; turn must be X or O.")
+            raise InvalidMoveException("Game is ongoing; turn must be X or O.")
     
     @staticmethod
     def make_move(board: BoardType, turn: Player, player: UsablePlayer, row: int, col: int) -> tuple[BoardType, Player, GameStatus]:
         if player != turn:
-            raise ValueError(f"Now is {turn} turn")
+            raise InvalidMoveException(f"Now is {turn} turn")
             
         if TicTacToeEngine.get_game_status(board) != GameStatus.KEEP_PLAYING:
-            raise ValueError("Game is already over")
+            raise GameOverException("Game is already over")
             
         if not (0 <= row < 3 and 0 <= col < 3):
-            raise ValueError(f"Invalid coordinates ({row}, {col})")
+            raise InvalidMoveException(f"Invalid coordinates ({row}, {col})")
             
         if board[row][col] != Player.NONE:
-            raise ValueError(f"Occupied cell ({row}, {col})")
+            raise OccupiedCellException((row, col))
 
         board[row][col] = player
         game_status = TicTacToeEngine.get_game_status(board)
@@ -87,3 +88,16 @@ class TicTacToeEngine:
         o_count = sum(row.count(Player.O) for row in board)
         count = x_count + o_count
         return Player.X if count % 2 == 0 else Player.O
+
+    @staticmethod
+    def get_possible_moves(board: BoardType) -> list[tuple[int, int]]:
+        status = TicTacToeEngine.get_game_status(board)
+        if status != GameStatus.KEEP_PLAYING:
+            return []
+            
+        moves = []
+        for r in range(3):
+            for c in range(3):
+                if board[r][c] == Player.NONE:
+                    moves.append((r, c))
+        return moves
