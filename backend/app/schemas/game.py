@@ -7,17 +7,22 @@ from app.core.types import UsablePlayer, Board
 class Move(BaseModel):
     row: Annotated[int, Field(ge=0, le=2)]
     col: Annotated[int, Field(ge=0, le=2)]
+    player: Player
+
 
 class History(BaseModel):
-    pass
+    moves: List[Move] = Field(default_factory=list)
 
-class Row(BaseModel):
+
+class Row(RootModel):
     root: List[Player] = Field(..., min_length=3, max_length=3)
 
-class Board(BaseModel):
-    board: List[Row] = Field(..., min_length=3, max_length=3)
+
+class Board(RootModel):
+    root: List[Row] = Field(..., min_length=3, max_length=3)
+
 
 class GameState(BaseModel):
-    board: List[Row] = Field(..., min_length=3, max_length=3)
+    board: Board
     turn: Player
     status: GameStatus

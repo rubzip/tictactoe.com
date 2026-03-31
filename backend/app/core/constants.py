@@ -12,3 +12,11 @@ class Player(StrEnum):
     NONE = ""
     X = "X"
     O = "O"
+
+class ConnectionStatus(StrEnum):
+    PENDING = "PENDING"
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
+    CANCELLED = "CANCELLED"
+    TIMEOUT = "TIMEOUT"
+    DISCONNECTED = "DISCONNECTED"

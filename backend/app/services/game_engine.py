@@ -1,22 +1,23 @@
 from app.core.constants import Player, GameStatus
-from app.core.types import UsablePlayer, Board
+from app.core.types import UsablePlayer, BoardType
 
 
 class TicTacToeEngine:
     """TicTacToe Engine. Always starts X."""
 
     @staticmethod
-    def init_board() -> Board:
-        return [
+    def init_board() -> tuple[BoardType, Player, GameStatus]:
+        board = [
             [
                 Player.NONE 
                 for _ in range(3)
             ]
             for _ in range(3)
         ]
+        return board, Player.X, GameStatus.KEEP_PLAYING
     
     @staticmethod
-    def get_game_status(board: list[list[Player]]) -> GameStatus:
+    def get_game_status(board: BoardType) -> GameStatus:
         for i in range(3):
             if board[i][0] == board[i][1] == board[i][2] != Player.NONE:
                 return GameStatus.WIN_X if board[i][0] == Player.X else GameStatus.WIN_O
@@ -34,7 +35,7 @@ class TicTacToeEngine:
         return GameStatus.DRAW
     
     @staticmethod
-    def validate_board(board: list[list[Player]], turn: Player):
+    def validate_board(board: BoardType, turn: Player):
         status = TicTacToeEngine.get_game_status(board)
         
         x_count = sum(row.count(Player.X) for row in board)
@@ -53,7 +54,7 @@ class TicTacToeEngine:
             raise ValueError("Game is ongoing; turn must be X or O.")
     
     @staticmethod
-    def make_move(board: Board, turn: Player, player: UsablePlayer, row: int, col: int) -> tuple[Board, Player, GameStatus]:
+    def make_move(board: BoardType, turn: Player, player: UsablePlayer, row: int, col: int) -> tuple[BoardType, Player, GameStatus]:
         if player != turn:
             raise ValueError(f"Now is {turn} turn")
             
@@ -77,14 +78,12 @@ class TicTacToeEngine:
         return board, new_turn, game_status
     
     @staticmethod
-    def get_current_player(board: Board) -> Player:
+    def get_current_player(board: BoardType) -> Player:
         status = TicTacToeEngine.get_game_status(board)
         if status != GameStatus.KEEP_PLAYING:
             return Player.NONE
         
         x_count = sum(row.count(Player.X) for row in board)
         o_count = sum(row.count(Player.O) for row in board)
-
-        if x_count > o_count:
-            return Player.O
-        return Player.X
+        count = x_count + o_count
+        return Player.X if count % 2 == 0 else Player.O

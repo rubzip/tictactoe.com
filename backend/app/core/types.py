@@ -1,7 +1,7 @@
 from typing import Literal, List
-from core.constants import Player
+from app.core.constants import Player
 
 
 UsablePlayer = Literal[Player.O, Player.X]
 
-Board = List[List[Player]]
+BoardType = List[List[Player]]
