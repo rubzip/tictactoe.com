@@ -1,9 +1,7 @@
-import math
-import random
 from abc import ABC, abstractmethod
 
 from app.core.types import BoardType
-from app.core.constants import GameStatus, Player
+from app.core.constants import Player
 from app.services.game_engine import TicTacToeEngine
 
 

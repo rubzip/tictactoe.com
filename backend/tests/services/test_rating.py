@@ -1,5 +1,6 @@
 import pytest
-from app.services.rating import EloEngine
+from app.services.ranking import EloEngine
+
 
 def test_compute_draw():
     r1, r2 = 1000, 1000

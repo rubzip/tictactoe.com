@@ -1,6 +1,4 @@
 import math
-import random
-from abc import ABC, abstractmethod
 
 from app.core.types import BoardType
 from app.core.constants import GameStatus, Player
@@ -44,7 +42,7 @@ class MinimaxStrategy(Strategy):
         if depth == 0:
             return 0
 
-        moves = cls.get_possible_moves(board)
+        moves = TicTacToeEngine.get_possible_moves(board)
         current_turn = bot_player if is_maximizing else (Player.O if bot_player == Player.X else Player.X)
 
         if is_maximizing:
