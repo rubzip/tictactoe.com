@@ -20,3 +20,9 @@ class ConnectionStatus(StrEnum):
     CANCELLED = "CANCELLED"
     TIMEOUT = "TIMEOUT"
     DISCONNECTED = "DISCONNECTED"
+
+class DifficultyMode(StrEnum):
+    EASY = "EASY"
+    MEDIUM = "MEDIUM"
+    HARD = "HARD"
+    EXPERT = "EXPERT"
