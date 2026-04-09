@@ -1,5 +1,5 @@
 # app/models.py
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -14,7 +14,7 @@ class User(Base):
     hashed_password = Column(String)
     
     # Atributos de juego basados en tus esquemas
-    elo_rating = Column(Integer, default=1000)
+    elo_rating = Column(Float, default=1000.0)
     is_active = Column(Boolean, default=True)
     
     # Estadísticas

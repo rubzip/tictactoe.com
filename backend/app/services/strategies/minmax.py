@@ -3,13 +3,13 @@ import math
 from app.core.types import BoardType
 from app.core.constants import GameStatus, Player
 from app.services.game_engine import TicTacToeEngine
-from .base import Strategy
+from .base import Strategy, MoveType
 
 
 class MinimaxStrategy(Strategy):
     MAX_DEPTH = 3
     @classmethod
-    def _strategy(cls, board: BoardType, turn: Player, moves: list[tuple[int, int]]) -> tuple[int, int]:
+    def _strategy(cls, board: BoardType, turn: Player, moves: list[MoveType]) -> MoveType:
         best_score = -math.inf
         best_move = moves[0]
 

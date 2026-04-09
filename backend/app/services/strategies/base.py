@@ -4,10 +4,11 @@ from app.core.types import BoardType
 from app.core.constants import Player
 from app.services.game_engine import TicTacToeEngine
 
+MoveType = tuple[int, int]
 
 class Strategy(ABC):
     @classmethod
-    def get_move(cls, board: BoardType, turn: Player) -> tuple[int, int] | None:
+    def get_move(cls, board: BoardType, turn: Player) -> MoveType | None:
         moves = TicTacToeEngine.get_possible_moves(board)
         if not moves:
             return None
@@ -16,5 +17,5 @@ class Strategy(ABC):
 
     @classmethod
     @abstractmethod
-    def _strategy(cls, board: BoardType, turn: Player, moves: list[tuple[int, int]]) -> tuple[int, int]:
+    def _strategy(cls, board: BoardType, turn: Player, moves: list[MoveType]) -> MoveType:
         pass

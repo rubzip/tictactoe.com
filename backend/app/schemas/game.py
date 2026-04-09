@@ -1,7 +1,7 @@
 from typing import List, Annotated
 from pydantic import BaseModel, Field, RootModel
 from app.core.constants import GameStatus, Player
-from app.core.types import UsablePlayer, Board
+from app.core.types import UsablePlayer, BoardType
 
 
 class Move(BaseModel):

@@ -4,12 +4,12 @@ from app.core.types import BoardType
 from app.core.constants import GameStatus, Player
 from app.services.game_engine import TicTacToeEngine
 
-from .base import Strategy
+from .base import Strategy, MoveType
 
 
 class CustomStrategy(Strategy):
     @classmethod
-    def _strategy(cls, board: BoardType, turn: Player, moves: list[tuple[int, int]]) -> tuple[int, int]:
+    def _strategy(cls, board: BoardType, turn: Player, moves: list[MoveType]) -> MoveType:
         for r, c in moves:
             if cls._simulate_win(board, r, c, turn):
                 return (r, c)        

@@ -27,4 +27,7 @@ async def get_leaderboard(page: int = 1, page_size: int = 10) -> Ranking:
     """
     Get the top players and their Elo ratings.
     """
-    return Ranking(items=MOCK_RANKING[(page - 1) * page_size: page * page_size])
+    index_start = (page - 1) * page_size
+    index_end = page * page_size
+    items = MOCK_RANKING[index_start: index_end]
+    return Ranking(items=items)
