@@ -1,4 +1,5 @@
 from enum import StrEnum
+from typing import Literal, List
 
 
 class GameStatus(StrEnum):
@@ -26,3 +27,14 @@ class DifficultyMode(StrEnum):
     MEDIUM = "MEDIUM"
     HARD = "HARD"
     EXPERT = "EXPERT"
+
+class ChallengeStatus(StrEnum):
+    PENDING = "PENDING"
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
+    CANCELLED = "CANCELLED"
+    EXPIRED = "EXPIRED"
+
+UsablePlayer = Literal[Player.O, Player.X]
+
+BoardType = List[List[Player]]

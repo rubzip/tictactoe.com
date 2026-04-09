@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 
-from app.core.types import BoardType
-from app.core.constants import Player
+from app.core.constants import Player, BoardType
 from app.services.game_engine import TicTacToeEngine
 
 MoveType = tuple[int, int]

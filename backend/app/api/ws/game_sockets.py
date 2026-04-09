@@ -2,6 +2,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from app.api.ws.connection_manager import manager
 from app.services.game_service import game_service
 from app.schemas.ws_messages import MessageType
+from app.core.database import SessionLocal
 import json
 
 router = APIRouter()
@@ -10,6 +11,7 @@ router = APIRouter()
 async def websocket_endpoint(websocket: WebSocket, client_id: str):
     await manager.connect(websocket, client_id)
     room_id = None
+    db = SessionLocal()
     try:
         while True:
             data = await websocket.receive_text()
@@ -21,18 +23,20 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
                 if msg_type == MessageType.JOIN:
                     room_id = payload.get("room_id")
                     if room_id:
-                        player_role = game_service.join_game(room_id, client_id)
+                        player_role = game_service.join_game(db, room_id, client_id)
                         await manager.join_room(client_id, room_id)
                         
-                        # Get current state
-                        session = game_service.get_or_create_session(room_id)
+                        # Get current state (session will already exist if started via REST)
+                        session = game_service.get_or_create_session(db, room_id)
                         
                         await manager.send_personal_message({
                             "type": MessageType.JOIN,
                             "payload": {
                                 "status": "success", 
                                 "room_id": room_id,
-                                "role": player_role
+                                "role": player_role,
+                                "is_ai_game": session.is_ai_game,
+                                "difficulty": session.ai_difficulty
                             }
                         }, client_id)
                         
@@ -55,7 +59,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
                         row = payload.get("row")
                         col = payload.get("col")
                         
-                        result = game_service.make_move(room_id, client_id, row, col)
+                        result = game_service.make_move(db, room_id, client_id, row, col)
                         
                         if "error" in result:
                             await manager.send_personal_message({
@@ -63,6 +67,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
                                 "payload": result["error"]
                             }, client_id)
                         else:
+                            # If it's an AI game, the result contains the board after BOTH moves
                             await manager.broadcast_to_room({
                                 "type": MessageType.GAME_STATE,
                                 "payload": result
@@ -89,3 +94,5 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
 
     except WebSocketDisconnect:
         manager.disconnect(client_id)
+    finally:
+        db.close()

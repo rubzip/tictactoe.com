@@ -1,7 +1,6 @@
 import random
 
-from app.core.types import BoardType
-from app.core.constants import Player
+from app.core.constants import Player, BoardType
 from .base import Strategy, MoveType
 
 

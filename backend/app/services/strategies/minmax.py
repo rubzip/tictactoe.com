@@ -1,7 +1,6 @@
 import math
 
-from app.core.types import BoardType
-from app.core.constants import GameStatus, Player
+from app.core.constants import GameStatus, Player, BoardType
 from app.services.game_engine import TicTacToeEngine
 from .base import Strategy, MoveType
 

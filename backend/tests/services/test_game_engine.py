@@ -17,7 +17,9 @@ def test_get_game_status_win_x():
         [Player.O, Player.O, Player.NONE],
         [Player.NONE, Player.NONE, Player.NONE]
     ]
-    assert TicTacToeEngine.get_game_status(board) == GameStatus.WIN_X
+    status, win_line = TicTacToeEngine.get_game_status(board)
+    assert status == GameStatus.WIN_X
+    assert win_line == [(0, 0), (0, 1), (0, 2)]
 
 def test_get_game_status_win_o():
     board = [
@@ -25,7 +27,9 @@ def test_get_game_status_win_o():
         [Player.O, Player.O, Player.O],
         [Player.NONE, Player.NONE, Player.NONE]
     ]
-    assert TicTacToeEngine.get_game_status(board) == GameStatus.WIN_O
+    status, win_line = TicTacToeEngine.get_game_status(board)
+    assert status == GameStatus.WIN_O
+    assert win_line == [(1, 0), (1, 1), (1, 2)]
 
 def test_get_game_status_draw():
     board = [
@@ -33,11 +37,13 @@ def test_get_game_status_draw():
         [Player.X, Player.O, Player.O],
         [Player.O, Player.X, Player.X]
     ]
-    assert TicTacToeEngine.get_game_status(board) == GameStatus.DRAW
+    status, win_line = TicTacToeEngine.get_game_status(board)
+    assert status == GameStatus.DRAW
+    assert win_line == []
 
 def test_make_move():
     board, turn, status = TicTacToeEngine.init_board()
-    new_board, next_turn, next_status = TicTacToeEngine.make_move(board, turn, Player.X, 0, 0)
+    new_board, next_turn, next_status, win_line = TicTacToeEngine.make_move(board, turn, Player.X, 0, 0)
     assert new_board[0][0] == Player.X
     assert next_turn == Player.O
     assert next_status == GameStatus.KEEP_PLAYING

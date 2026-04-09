@@ -1,5 +1,4 @@
-from app.core.constants import Player, GameStatus
-from app.core.types import UsablePlayer, BoardType
+from app.core.constants import Player, GameStatus, UsablePlayer, BoardType
 from app.core.exceptions import InvalidMoveException, OccupiedCellException, GameOverException
 
 from dataclasses import dataclass
