@@ -7,7 +7,7 @@ from app.core.types import UsablePlayer, Board
 class Move(BaseModel):
     row: Annotated[int, Field(ge=0, le=2)]
     col: Annotated[int, Field(ge=0, le=2)]
-    player: Player
+    player: UsablePlayer
 
 
 class History(BaseModel):
