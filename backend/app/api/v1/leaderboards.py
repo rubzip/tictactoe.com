@@ -1,33 +1,33 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 from app.schemas.ranking import Ranking, RankingItem
+from app.api import deps
+from app.models.users import User
 
 router = APIRouter(
     prefix="/leaderboards",
     tags=["leaderboards"]
 )
 
-MOCK_RANKING = [
-    RankingItem(pos=1, user="Magnus Carlsen", elo=2882),
-    RankingItem(pos=2, user="Garry Kasparov", elo=2851),
-    RankingItem(pos=3, user="Fabiano Caruana", elo=2844),
-    RankingItem(pos=4, user="Levon Aronian", elo=2830),
-    RankingItem(pos=5, user="Wesley So", elo=2822),
-    RankingItem(pos=6, user="Hikaru Nakamura", elo=2816),
-    RankingItem(pos=7, user="Ding Liren", elo=2799),
-    RankingItem(pos=8, user="Anish Giri", elo=2797),
-    RankingItem(pos=9, user="Ian Nepomniachtchi", elo=2792),
-    RankingItem(pos=10, user="Viswanathan Anand", elo=2791),
-    RankingItem(pos=11, user="Bobby Fischer", elo=2785),
-    RankingItem(pos=12, user="Mikhail Tal", elo=2705),
-]
-
 
 @router.get("/", response_model=Ranking)
-async def get_leaderboard(page: int = 1, page_size: int = 10) -> Ranking:
+async def get_leaderboard(
+    page: int = 1, 
+    page_size: int = 10,
+    db: Session = Depends(deps.get_db)
+) -> Ranking:
     """
     Get the top players and their Elo ratings.
     """
-    index_start = (page - 1) * page_size
-    index_end = page * page_size
-    items = MOCK_RANKING[index_start: index_end]
+    total_users = db.query(User).count()
+    users = db.query(User).order_by(User.elo_rating.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    
+    items = []
+    for i, user in enumerate(users):
+        items.append(RankingItem(
+            pos=((page - 1) * page_size) + i + 1,
+            user=user.username,
+            elo=int(user.elo_rating)
+        ))
+        
     return Ranking(items=items)

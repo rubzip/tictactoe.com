@@ -21,6 +21,18 @@ def read_user_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
+@router.patch("/me", response_model=UserSchema)
+def update_user_me(
+    user_in: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update my profile.
+    """
+    return crud.user.update_user(db, db_user=current_user, user_in=user_in)
+
+
 @router.get("/{user_id}", response_model=UserSchema)
 def read_user_by_id(user_id: int, db: Session = Depends(get_db)):
     """

@@ -3,6 +3,8 @@ from app.api.ws.connection_manager import manager
 from app.services.game_service import game_service
 from app.schemas.ws_messages import MessageType
 from app.core.database import SessionLocal
+from app.models.users import User
+from app import deps
 import json
 
 router = APIRouter()
@@ -23,7 +25,11 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
                 if msg_type == MessageType.JOIN:
                     room_id = payload.get("room_id")
                     if room_id:
-                        player_role = game_service.join_game(db, room_id, client_id)
+                        # Try to look up user for stat tracking
+                        user = db.query(User).filter(User.username == client_id).first()
+                        user_id = user.id if user else None
+                        
+                        player_role = game_service.join_game(db, room_id, client_id, user_id=user_id)
                         await manager.join_room(client_id, room_id)
                         
                         # Get current state (session will already exist if started via REST)

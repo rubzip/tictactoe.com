@@ -16,8 +16,8 @@ router = APIRouter(
 @router.post("/ai/start", response_model=dict)
 def start_ai_game(
     difficulty: DifficultyMode,
-    client_id: str = "guest",
-    db: Session = Depends(deps.get_db)
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user)
 ):
     """
     Start a new game against the CPU.
@@ -30,8 +30,8 @@ def start_ai_game(
         difficulty=difficulty
     )
     
-    # Auto-join the player
-    game_service.join_game(db, room_id, client_id)
+    # Auto-join the player with their user_id for stat tracking
+    game_service.join_game(db, room_id, client_id=current_user.username, user_id=current_user.id)
     
     return {
         "room_id": room_id,

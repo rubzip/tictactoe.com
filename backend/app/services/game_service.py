@@ -15,10 +15,11 @@ class GameSession:
     status: GameStatus
     win_line: List[tuple[int, int]] = field(default_factory=list)
     players: Dict[str, Player] = field(default_factory=dict) # client_id -> Player (X or O)
+    player_user_ids: Dict[Player, int] = field(default_factory=dict) # Player -> user_id
     
     # AI Game specific fields
     is_ai_game: bool = False
-    ai_difficulty: Optional[DifficultyMode] = None
+    ai_difficulty: Optional[DifficultyMode] = field(default=None)
     ai_player: Player = Player.O
 
 
@@ -66,7 +67,7 @@ class GameService:
     def get_or_create_session(self, db: Session, room_id: str, is_ai: bool = False, difficulty: DifficultyMode = None) -> GameSession:
         return self._sync_with_db(db, room_id, is_ai, difficulty)
 
-    def join_game(self, db: Session, room_id: str, client_id: str) -> Optional[Player]:
+    def join_game(self, db: Session, room_id: str, client_id: str, user_id: int = None) -> Optional[Player]:
         session = self.get_or_create_session(db, room_id)
         
         # If player already in game, return their role
@@ -74,17 +75,25 @@ class GameService:
             return session.players[client_id]
         
         # Assign role if possible
+        role = None
         if len(session.players) == 0:
-            session.players[client_id] = Player.X
-            return Player.X
+            role = Player.X
         elif len(session.players) == 1 and not session.is_ai_game:
-            session.players[client_id] = Player.O
-            return Player.O
+            role = Player.O
         
+        if role:
+            session.players[client_id] = role
+            if user_id:
+                session.player_user_ids[role] = user_id
+            return role
+            
         # Room full or already has AI
         return None
 
     def make_move(self, db: Session, room_id: str, client_id: str, row: int, col: int) -> dict:
+        from app.services.rating import update_user_game_stats
+        from app.crud.user import get_user
+        
         # Ensure session is in sync with DB
         db_game = crud_game.get_game_by_room(db, room_id)
         if not db_game:
@@ -161,11 +170,50 @@ class GameService:
                 result["board"] = session.board
                 result["turn"] = session.turn
                 result["status"] = session.status
+
+            # 3. Handle Game End - Update Stats
+            if session.status != GameStatus.KEEP_PLAYING:
+                self._handle_game_end(db, session)
             
             return result
             
         except Exception as e:
             return {"error": str(e)}
+
+    def _handle_game_end(self, db: Session, session: GameSession):
+        from app.services.rating import update_user_game_stats
+        from app.crud.user import get_user
+
+        # Get user IDs
+        x_user_id = session.player_user_ids.get(Player.X)
+        o_user_id = session.player_user_ids.get(Player.O)
+        
+        # Get Elos
+        x_user = get_user(db, x_user_id) if x_user_id else None
+        o_user = get_user(db, o_user_id) if o_user_id else None
+        
+        x_elo = x_user.elo_rating if x_user else 1000.0
+        o_elo = o_user.elo_rating if o_user else 1000.0
+        
+        # Update X
+        if x_user_id:
+            update_user_game_stats(
+                db, 
+                x_user_id, 
+                is_win=(session.status == GameStatus.WIN_X),
+                is_draw=(session.status == GameStatus.DRAW),
+                opponent_elo=o_elo
+            )
+            
+        # Update O
+        if o_user_id and not session.is_ai_game:
+            update_user_game_stats(
+                db, 
+                o_user_id, 
+                is_win=(session.status == GameStatus.WIN_O),
+                is_draw=(session.status == GameStatus.DRAW),
+                opponent_elo=x_elo
+            )
 
 
 game_service = GameService()

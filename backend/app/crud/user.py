@@ -17,22 +17,24 @@ def get_user(db: Session, user_id: int) -> User | None:
 
 
 def create_user(db: Session, user_in: UserCreate) -> User:
-    if get_user_by_username(db, user_in.username):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already registered"
-        )
-    if get_user_by_email(db, user_in.email):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
-
     db_user = User(
         username=user_in.username,
         email=user_in.email,
         hashed_password=get_password_hash(user_in.password)
     )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
+def update_user(db: Session, db_user: User, user_in: dict) -> User:
+    for field in user_in:
+        if field == "password":
+            db_user.hashed_password = get_password_hash(user_in[field])
+        else:
+            setattr(db_user, field, user_in[field])
+    
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
