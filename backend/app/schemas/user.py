@@ -22,5 +22,9 @@ class User(UserBase):
     elo_rating: int = 1000
     is_active: bool = True
 
+    played_games: int = 0
+    won_games: int = 0
+    lost_games: int = 0
+
     class Config:
         from_attributes = True
