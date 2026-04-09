@@ -1,3 +1,4 @@
+from app.core.constants import DifficultyMode
 from app.services.strategies import RandomStrategy, CustomStrategy, MinimaxStrategy
 
 
@@ -12,3 +13,19 @@ class HardCPU(CustomStrategy):
 
 class PerfectCPU(MinimaxStrategy):
     MAX_DEPTH = 9
+
+
+def get_strategy(difficulty: DifficultyMode):
+    if difficulty == DifficultyMode.EASY:
+        return EasyCPU
+    if difficulty == DifficultyMode.MEDIUM:
+        return MediumCPU
+    if difficulty == DifficultyMode.HARD:
+        return HardCPU
+    if difficulty == DifficultyMode.EXPERT:
+        return PerfectCPU
+    raise
+
+def get_next_cpu_move(board, difficulty: DifficultyMode):
+    strategy = get_strategy(difficulty)
+    return strategy.get_move(board)
