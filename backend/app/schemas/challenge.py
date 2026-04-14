@@ -4,7 +4,7 @@ from app.core.constants import ChallengeStatus
 
 
 class ChallengeBase(BaseModel):
-    challenged_id: int
+    challenged_username: str
 
 
 class ChallengeCreate(ChallengeBase):
@@ -17,7 +17,7 @@ class ChallengeUpdate(BaseModel):
 
 class ChallengeInfo(ChallengeBase):
     id: int
-    challenger_id: int
+    challenger_username: str
     room_id: str
     status: ChallengeStatus
     created_at: datetime

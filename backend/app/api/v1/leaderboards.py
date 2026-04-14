@@ -4,6 +4,7 @@ from app.schemas.ranking import Ranking, RankingItem
 from app.api import deps
 from app.models.users import User
 
+
 router = APIRouter(
     prefix="/leaderboards",
     tags=["leaderboards"]

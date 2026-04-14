@@ -11,13 +11,13 @@ class Challenge(Base):
     __tablename__ = "challenges"
 
     id = Column(Integer, primary_key=True, index=True)
-    challenger_id = Column(Integer, ForeignKey("users.id"))
-    challenged_id = Column(Integer, ForeignKey("users.id"))
+    challenger_username = Column(String, ForeignKey("users.username"))
+    challenged_username = Column(String, ForeignKey("users.username"))
     
     room_id = Column(String, unique=True, index=True)
     status = Column(Enum(ChallengeStatus), default=ChallengeStatus.PENDING)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
-    challenger = relationship("User", foreign_keys=[challenger_id])
-    challenged = relationship("User", foreign_keys=[challenged_id])
+    challenger = relationship("User", foreign_keys=[challenger_username])
+    challenged = relationship("User", foreign_keys=[challenged_username])

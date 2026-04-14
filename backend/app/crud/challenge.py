@@ -5,10 +5,10 @@ from app.core.constants import ChallengeStatus
 from app.schemas.challenge import ChallengeCreate
 
 
-def create_challenge(db: Session, challenger_id: int, challenged_id: int) -> Challenge:
+def create_challenge(db: Session, challenger_username: str, challenged_username: str) -> Challenge:
     db_challenge = Challenge(
-        challenger_id=challenger_id,
-        challenged_id=challenged_id,
+        challenger_username=challenger_username,
+        challenged_username=challenged_username,
         room_id=str(uuid.uuid4()),
         status=ChallengeStatus.PENDING
     )
@@ -22,9 +22,9 @@ def get_challenge(db: Session, challenge_id: int) -> Challenge | None:
     return db.query(Challenge).filter(Challenge.id == challenge_id).first()
 
 
-def get_pending_challenges_for_user(db: Session, user_id: int) -> list[Challenge]:
+def get_pending_challenges_for_user(db: Session, username: str) -> list[Challenge]:
     return db.query(Challenge).filter(
-        Challenge.challenged_id == user_id,
+        Challenge.challenged_username == username,
         Challenge.status == ChallengeStatus.PENDING
     ).all()
 

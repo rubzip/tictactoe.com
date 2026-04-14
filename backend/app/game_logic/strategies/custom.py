@@ -1,7 +1,7 @@
 import random
 
 from app.core.constants import GameStatus, Player, BoardType
-from app.services.game_engine import TicTacToeEngine
+from app.game_logic.game_engine import TicTacToeEngine
 
 from .base import Strategy, MoveType
 

@@ -12,13 +12,10 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
-    username: str | None = None
-    email: str | None = None
     password: str | None = None
 
 
 class User(UserBase):
-    id: int
     elo_rating: int = 1000
     is_active: bool = True
 

@@ -10,6 +10,10 @@ class MessageType(str, Enum):
     ERROR = "ERROR"
     JOIN = "JOIN"
     LEAVE = "LEAVE"
+    QUEUE_JOIN = "QUEUE_JOIN"
+    QUEUE_LEAVE = "QUEUE_LEAVE"
+    MATCH_FOUND = "MATCH_FOUND"
+    SPECTATE = "SPECTATE"
 
 
 class BaseWSMessage(BaseModel):

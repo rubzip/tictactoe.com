@@ -1,7 +1,7 @@
-from typing import Type
+from typing import Type, Optional
 from app.core.constants import DifficultyMode, Player
-from app.services.game_engine import TicTacToeEngine
-from app.services.strategies import MoveType, Strategy, RandomStrategy, CustomStrategy, MinimaxStrategy
+from .game_engine import TicTacToeEngine
+from .strategies import MoveType, Strategy, RandomStrategy, CustomStrategy, MinimaxStrategy
 
 
 class EasyCPU(RandomStrategy):
@@ -28,7 +28,7 @@ def get_strategy(difficulty: DifficultyMode) -> Type[Strategy]:
         return PerfectCPU
     raise ValueError(f"Invalid difficulty: {difficulty}")
 
-def get_next_cpu_move(board, difficulty: DifficultyMode, turn: Player = None) -> MoveType:
+def get_next_cpu_move(board, difficulty: DifficultyMode, turn: Optional[Player] = None) -> MoveType:
     """
     Returns the next move for the CPU based on difficulty.
     If turn is not provided, it will be automatically determined from the board.

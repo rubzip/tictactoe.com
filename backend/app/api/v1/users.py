@@ -6,6 +6,7 @@ from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.users import User
 from app.schemas.user import User as UserSchema
+from app.schemas.game import MatchHistory
 
 router = APIRouter(
     prefix="/users",
@@ -33,22 +34,27 @@ def update_user_me(
     return crud.user.update_user(db, db_user=current_user, user_in=user_in)
 
 
-@router.get("/{user_id}", response_model=UserSchema)
-def read_user_by_id(user_id: int, db: Session = Depends(get_db)):
-    """
-    Get a specific user by id.
-    """
-    user = crud.get_user(db, user_id=user_id)
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user
-
-@router.get("/username/{username}", response_model=UserSchema)
+@router.get("/{username}", response_model=UserSchema)
 def read_user_by_username(username: str, db: Session = Depends(get_db)):
     """
     Get a specific user by username.
     """
-    user = crud.get_user_by_username(db, username=username)
+    user = crud.user.get_user(db, username=username)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+
+@router.get("/{username}/history", response_model=MatchHistory)
+def read_user_match_history(
+    username: str, 
+    limit: int = 20, 
+    db: Session = Depends(get_db)
+):
+    """
+    Get match history for a specific user.
+    """
+    matches = crud.game.get_user_match_history(db, username=username, limit=limit)
+    return MatchHistory(matches=matches)
+
+# Removed read_user_by_username redundant endpoint

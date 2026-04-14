@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, JSON, Enum, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, JSON, Enum, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from app.core.database import Base
 from app.core.constants import Player, GameStatus, DifficultyMode
@@ -18,11 +18,18 @@ class Game(Base):
     
     # Winning line coordinates as JSON (List[tuple[int, int]])
     win_line = Column(JSON, default=list)
+
+    # Player X
+    player_x_username = Column(String, ForeignKey("users.username"), nullable=True)
+    player_x_avatar = Column(String, nullable=True)
+    
+    # Player O
+    player_o_username = Column(String, ForeignKey("users.username"), nullable=True)
+    player_o_avatar = Column(String, nullable=True)
     
     # AI Game specific fields
-    is_ai_game = Column(Boolean, default=False)
-    ai_difficulty = Column(Enum(DifficultyMode), nullable=True)
-    ai_player = Column(Enum(Player), default=Player.O)
+    ai_player_x_difficulty = Column(Enum(DifficultyMode), nullable=True)
+    ai_player_o_difficulty = Column(Enum(DifficultyMode), nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

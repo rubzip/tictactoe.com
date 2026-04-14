@@ -2,12 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 
-from app import crud
 from app.api import deps
 from app.models.users import User
 from app.core.constants import ChallengeStatus
 from app.schemas.challenge import ChallengeCreate, ChallengeInfo
 from app.core.database import get_db
+from app.services.challenge_service import challenge_service
 
 router = APIRouter(
     prefix="/challenges",
@@ -24,25 +24,17 @@ def create_challenge(
     """
     Challenge another player.
     """
-    if challenge_in.challenged_id == current_user.id:
+    try:
+        return challenge_service.create_challenge(
+            db, 
+            challenger_username=current_user.username, 
+            challenged_username=challenge_in.challenged_username
+        )
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="You cannot challenge yourself"
+            detail=str(e)
         )
-    
-    # Check if opponent exists
-    opponent = crud.get_user(db, user_id=challenge_in.challenged_id)
-    if not opponent:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Opponent not found"
-        )
-    
-    return crud.challenge.create_challenge(
-        db, 
-        challenger_id=current_user.id, 
-        challenged_id=challenge_in.challenged_id
-    )
 
 
 @router.get("/pending", response_model=List[ChallengeInfo])
@@ -53,7 +45,7 @@ def get_pending_challenges(
     """
     Get all pending challenges for the current user.
     """
-    return crud.challenge.get_pending_challenges_for_user(db, user_id=current_user.id)
+    return challenge_service.get_pending_challenges_for_user(db, username=current_user.username)
 
 
 @router.post("/{challenge_id}/accept", response_model=ChallengeInfo)
@@ -65,8 +57,8 @@ def accept_challenge(
     """
     Accept a challenge.
     """
-    challenge = crud.challenge.get_challenge(db, challenge_id)
-    if not challenge or challenge.challenged_id != current_user.id:
+    challenge = challenge_service.get_challenge(db, challenge_id)
+    if not challenge or challenge.challenged_username != current_user.username:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Challenge not found"
@@ -78,11 +70,6 @@ def accept_challenge(
             detail=f"Challenge is already {challenge.status.value}"
         )
     
-    # Update challenge status
-    updated_challenge = crud.challenge.update_challenge_status(db, challenge_id, ChallengeStatus.ACCEPTED)
-    
-    # Initialize game record in DB
-    from app.services.game_service import game_service
-    game_service.get_or_create_session(db, room_id=updated_challenge.room_id)
-    
+    # Update challenge status (Service handles game initialization if status is ACCEPTED)
+    updated_challenge = challenge_service.update_challenge_status(db, challenge_id, ChallengeStatus.ACCEPTED)
     return updated_challenge

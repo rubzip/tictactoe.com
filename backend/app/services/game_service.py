@@ -1,10 +1,11 @@
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Set
 from sqlalchemy.orm import Session
-from app.services.game_engine import TicTacToeEngine
-from app.services.cpu import get_next_cpu_move
+from app.game_logic.game_engine import TicTacToeEngine
+from app.game_logic.cpu_engine import get_next_cpu_move
 from app.core.constants import Player, GameStatus, DifficultyMode, BoardType
 from dataclasses import dataclass, field
 import app.crud.game as crud_game
+from app.schemas.game import GameCreate, GameUpdate
 
 
 @dataclass
@@ -15,12 +16,26 @@ class GameSession:
     status: GameStatus
     win_line: List[tuple[int, int]] = field(default_factory=list)
     players: Dict[str, Player] = field(default_factory=dict) # client_id -> Player (X or O)
-    player_user_ids: Dict[Player, int] = field(default_factory=dict) # Player -> user_id
+    spectators: Set[str] = field(default_factory=set) # Set of client_ids
+    player_usernames: Dict[Player, str] = field(default_factory=dict) # Player -> username
     
     # AI Game specific fields
-    is_ai_game: bool = False
-    ai_difficulty: Optional[DifficultyMode] = field(default=None)
-    ai_player: Player = Player.O
+    ai_player_x_difficulty: Optional[DifficultyMode] = field(default=None)
+    ai_player_o_difficulty: Optional[DifficultyMode] = field(default=None)
+
+    @property
+    def is_ai_game(self) -> bool:
+        return self.ai_player_x_difficulty is not None or self.ai_player_o_difficulty is not None
+
+    def to_summary_dict(self) -> dict:
+        """Returns a dict suitable for WebSocket/API responses."""
+        return {
+            "board": self.board,
+            "turn": self.turn,
+            "status": self.status,
+            "win_line": self.win_line,
+            "player_usernames": {k.value: v for k, v in self.player_usernames.items()}
+        }
 
 
 class GameService:
@@ -28,18 +43,17 @@ class GameService:
         # We still keep in-memory sessions for tracking connected players
         self.sessions: Dict[str, GameSession] = {}
 
-    def _sync_with_db(self, db: Session, room_id: str, is_ai: bool = False, difficulty: DifficultyMode = None) -> GameSession:
+    def _sync_with_db(self, db: Session, room_id: str, ai_difficulty: DifficultyMode = None) -> GameSession:
         """Fetch from DB and sync with in-memory session."""
         db_game = crud_game.get_game_by_room(db, room_id)
         if not db_game:
             # Create new game in DB if doesn't exist
-            initial_board, _, _ = TicTacToeEngine.init_board()
             db_game = crud_game.create_game(
                 db, 
-                room_id=room_id, 
-                board=initial_board, 
-                is_ai=is_ai, 
-                difficulty=difficulty
+                game_in=GameCreate(
+                    room_id=room_id,
+                    ai_player_o_difficulty=ai_difficulty
+                )
             )
         
         # Load into memory if not there, or update from DB
@@ -50,10 +64,14 @@ class GameService:
                 turn=db_game.turn,
                 status=db_game.status,
                 win_line=db_game.win_line if db_game.win_line else [],
-                is_ai_game=db_game.is_ai_game,
-                ai_difficulty=db_game.ai_difficulty,
-                ai_player=db_game.ai_player
+                ai_player_x_difficulty=db_game.ai_player_x_difficulty,
+                ai_player_o_difficulty=db_game.ai_player_o_difficulty
             )
+            # Restore players if stored in DB (partially for now)
+            if db_game.player_x_username:
+                self.sessions[room_id].player_usernames[Player.X] = db_game.player_x_username
+            if db_game.player_o_username:
+                self.sessions[room_id].player_usernames[Player.O] = db_game.player_o_username
         else:
             # Sync existing session with DB state (in case of REST updates)
             session = self.sessions[room_id]
@@ -64,12 +82,16 @@ class GameService:
             
         return self.sessions[room_id]
 
-    def get_or_create_session(self, db: Session, room_id: str, is_ai: bool = False, difficulty: DifficultyMode = None) -> GameSession:
-        return self._sync_with_db(db, room_id, is_ai, difficulty)
+    def get_or_create_session(self, db: Session, room_id: str, ai_difficulty: DifficultyMode = None) -> GameSession:
+        return self._sync_with_db(db, room_id, ai_difficulty=ai_difficulty)
 
-    def join_game(self, db: Session, room_id: str, client_id: str, user_id: int = None) -> Optional[Player]:
+    def join_game(self, db: Session, room_id: str, client_id: str, username: str = None, as_spectator: bool = False) -> Optional[Player]:
         session = self.get_or_create_session(db, room_id)
         
+        if as_spectator:
+            session.spectators.add(client_id)
+            return None # Spectators don't have a Player role (X/O)
+
         # If player already in game, return their role
         if client_id in session.players:
             return session.players[client_id]
@@ -83,22 +105,19 @@ class GameService:
         
         if role:
             session.players[client_id] = role
-            if user_id:
-                session.player_user_ids[role] = user_id
+            if username:
+                session.player_usernames[role] = username
             return role
             
-        # Room full or already has AI
+        # Room full or already has AI -> Join as spectator automatically if not rejected
+        session.spectators.add(client_id)
         return None
 
     def make_move(self, db: Session, room_id: str, client_id: str, row: int, col: int) -> dict:
-        from app.services.rating import update_user_game_stats
+        from app.services.rating_service import rating_service
         from app.crud.user import get_user
         
-        # Ensure session is in sync with DB
-        db_game = crud_game.get_game_by_room(db, room_id)
-        if not db_game:
-            return {"error": "Game not found"}
-            
+        # Ensure session is in sync with DB - done once
         session = self._sync_with_db(db, room_id)
         
         player = session.players.get(client_id)
@@ -110,110 +129,84 @@ class GameService:
             session.board, session.turn, session.status, session.win_line = TicTacToeEngine.make_move(
                 session.board, session.turn, player, row, col
             )
+            self._update_db_state(db, room_id, session)
             
-            # Update DB with Human Move
-            crud_game.update_game(
-                db, 
-                room_id=room_id, 
-                board=session.board, 
-                turn=session.turn, 
-                status=session.status, 
-                win_line=session.win_line
-            )
-            
-            result = {
-                "board": session.board,
-                "turn": session.turn,
-                "status": session.status,
-                "win_line": session.win_line,
-                "player": player,
-                "row": row,
-                "col": col
-            }
+            result = session.to_summary_dict()
+            result.update({"player": player, "row": row, "col": col})
 
             # 2. Trigger CPU Move if applicable
-            if (session.is_ai_game and 
-                session.status == GameStatus.KEEP_PLAYING and 
-                session.turn == session.ai_player):
+            while session.status == GameStatus.KEEP_PLAYING:
+                current_ai_difficulty = session.ai_player_x_difficulty if session.turn == Player.X else session.ai_player_o_difficulty
                 
-                cpu_row, cpu_col = get_next_cpu_move(
-                    session.board, 
-                    session.ai_difficulty, 
-                    session.ai_player
-                )
+                if not current_ai_difficulty:
+                    break
+                    
+                cpu_row, cpu_col = get_next_cpu_move(session.board, current_ai_difficulty, session.turn)
+                cpu_player = session.turn
                 
                 session.board, session.turn, session.status, session.win_line = TicTacToeEngine.make_move(
-                    session.board, session.turn, session.ai_player, cpu_row, cpu_col
+                    session.board, session.turn, cpu_player, cpu_row, cpu_col
                 )
+                self._update_db_state(db, room_id, session)
                 
-                # Update DB with CPU Move
-                crud_game.update_game(
-                    db, 
-                    room_id=room_id, 
-                    board=session.board, 
-                    turn=session.turn, 
-                    status=session.status, 
-                    win_line=session.win_line
-                )
+                if "cpu_moves" not in result:
+                    result["cpu_moves"] = []
                 
-                result["cpu_move"] = {
+                result["cpu_moves"].append({
                     "row": cpu_row,
                     "col": cpu_col,
-                    "player": session.ai_player,
-                    "board": session.board,
-                    "turn": session.turn,
-                    "status": session.status,
-                    "win_line": session.win_line
-                }
-                
-                # Update the main result with the absolute final state
-                result["board"] = session.board
-                result["turn"] = session.turn
-                result["status"] = session.status
+                    "player": cpu_player,
+                    **session.to_summary_dict()
+                })
+            
+            # Update the main result with the absolute final state
+            result.update(session.to_summary_dict())
 
             # 3. Handle Game End - Update Stats
             if session.status != GameStatus.KEEP_PLAYING:
                 self._handle_game_end(db, session)
+                self.cleanup_old_sessions()
             
             return result
             
         except Exception as e:
             return {"error": str(e)}
 
-    def _handle_game_end(self, db: Session, session: GameSession):
-        from app.services.rating import update_user_game_stats
-        from app.crud.user import get_user
+    def _update_db_state(self, db: Session, room_id: str, session: GameSession):
+        """Helper to sync current session state to DB."""
+        crud_game.update_game(
+            db, 
+            room_id=room_id, 
+            game_in=GameUpdate(
+                board=session.board,
+                turn=session.turn,
+                status=session.status,
+                win_line=session.win_line
+            )
+        )
 
-        # Get user IDs
-        x_user_id = session.player_user_ids.get(Player.X)
-        o_user_id = session.player_user_ids.get(Player.O)
+    def _handle_game_end(self, db: Session, session: GameSession):
+        from app.services.rating_service import rating_service
         
-        # Get Elos
-        x_user = get_user(db, x_user_id) if x_user_id else None
-        o_user = get_user(db, o_user_id) if o_user_id else None
-        
-        x_elo = x_user.elo_rating if x_user else 1000.0
-        o_elo = o_user.elo_rating if o_user else 1000.0
-        
-        # Update X
-        if x_user_id:
-            update_user_game_stats(
+        # We only update if it's a valid end result (WIN_X, WIN_O, DRAW)
+        if session.status in [GameStatus.WIN_X, GameStatus.WIN_O, GameStatus.DRAW]:
+            rating_service.update_user_game_stats(
                 db, 
-                x_user_id, 
-                is_win=(session.status == GameStatus.WIN_X),
-                is_draw=(session.status == GameStatus.DRAW),
-                opponent_elo=o_elo
+                username_x=session.player_usernames.get(Player.X),
+                username_o=session.player_usernames.get(Player.O),
+                game_result=session.status
             )
-            
-        # Update O
-        if o_user_id and not session.is_ai_game:
-            update_user_game_stats(
-                db, 
-                o_user_id, 
-                is_win=(session.status == GameStatus.WIN_O),
-                is_draw=(session.status == GameStatus.DRAW),
-                opponent_elo=x_elo
-            )
+
+    def cleanup_old_sessions(self):
+        """Removes sessions for games that are finished or inactive."""
+        # This could be called periodically or on certain events
+        rooms_to_delete = []
+        for room_id, session in self.sessions.items():
+            if session.status != GameStatus.KEEP_PLAYING:
+                rooms_to_delete.append(room_id)
+        
+        for room_id in rooms_to_delete:
+            del self.sessions[room_id]
 
 
 game_service = GameService()

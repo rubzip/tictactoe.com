@@ -1,9 +1,6 @@
 from sqlalchemy.orm import Session
 from app.models.users import User
-from app.models.ranking import Ranking, RankingItem
-from app.schemas.user import UserCreate
-from app.core.security import get_password_hash
+from sqlalchemy import desc
 
-
-def get_ranking(db: Session, page: int = 1, page_size: int = 10) -> list[User]:
-    pass
+def get_ranking(db: Session, limit: int = 10, offset: int = 0) -> list[User]:
+    return db.query(User).order_by(desc(User.elo_rating)).limit(limit).offset(offset).all()

@@ -36,5 +36,5 @@ class ChallengeStatus(StrEnum):
     EXPIRED = "EXPIRED"
 
 UsablePlayer = Literal[Player.O, Player.X]
-
+GameResult = Literal[GameStatus.WIN_X, GameStatus.WIN_O, GameStatus.DRAW]
 BoardType = List[List[Player]]
