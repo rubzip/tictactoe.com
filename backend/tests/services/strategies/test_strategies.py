@@ -1,6 +1,6 @@
 import pytest
-from app.services.cpu import EasyCPU, MediumCPU, HardCPU, PerfectCPU, get_next_cpu_move
-from app.services.game_engine import TicTacToeEngine
+from app.game_logic.cpu_engine import EasyCPU, MediumCPU, HardCPU, PerfectCPU, get_next_cpu_move
+from app.game_logic.game_engine import TicTacToeEngine
 from app.core.constants import Player, DifficultyMode
 
 @pytest.mark.parametrize("cpu_class", [EasyCPU, MediumCPU, HardCPU, PerfectCPU])

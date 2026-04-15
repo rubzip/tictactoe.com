@@ -5,7 +5,8 @@ from app import crud
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.users import User
-from app.schemas.user import User as UserSchema
+from app.core.exceptions import UserNotFoundException
+from app.schemas.user import User as UserSchema, UserUpdate
 from app.schemas.game import MatchHistory
 
 router = APIRouter(
@@ -24,7 +25,7 @@ def read_user_me(current_user: User = Depends(get_current_user)):
 
 @router.patch("/me", response_model=UserSchema)
 def update_user_me(
-    user_in: dict,
+    user_in: UserUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -41,7 +42,7 @@ def read_user_by_username(username: str, db: Session = Depends(get_db)):
     """
     user = crud.user.get_user(db, username=username)
     if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise UserNotFoundException(username)
     return user
 
 

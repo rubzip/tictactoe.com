@@ -10,6 +10,7 @@ class User(Base):
 
     username = Column(String, primary_key=True, unique=True, index=True)
     email = Column(String, unique=True, index=True)
+    avatar_url = Column(String, nullable=True)
     hashed_password = Column(String)
     
     # Atributos de juego basados en tus esquemas

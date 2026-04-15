@@ -1,1 +1,1 @@
-from . import user, challenge, chat, game, notification
+from . import user, challenge, chat, game, notification, leaderboard

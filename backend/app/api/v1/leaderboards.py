@@ -20,14 +20,14 @@ async def get_leaderboard(
     """
     Get the top players and their Elo ratings.
     """
-    total_users = db.query(User).count()
-    users = db.query(User).order_by(User.elo_rating.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    start = page_size * (page - 1)
+    users = db.query(User).order_by(User.elo_rating.desc()).offset(start).limit(page_size).all()
     
     items = []
-    for i, user in enumerate(users):
+    for pos, user in enumerate(users, start=start + 1):
         items.append(RankingItem(
-            pos=((page - 1) * page_size) + i + 1,
-            user=user.username,
+            pos=pos,
+            username=user.username,
             elo=int(user.elo_rating)
         ))
         

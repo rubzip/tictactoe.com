@@ -10,10 +10,13 @@ class NotificationBase(BaseModel):
     link_data: Optional[str] = None
 
 
-class Notification(NotificationBase):
-    id: int
+class NotificationCreate(NotificationBase):
     username: str
-    is_read: bool
+
+
+class Notification(NotificationCreate):
+    id: int
+    is_read: bool = False
     created_at: datetime
 
     class Config:

@@ -5,8 +5,8 @@ from app.schemas.ws_messages import JoinMessage, MessageType
 from app.core.constants import Player, GameStatus
 
 def test_user_schema():
-    user = User(id=1, username="test", email="test@example.com")
-    assert user.id == 1
+    user = User(username="test", email="test@example.com")
+    assert user.username == "test"
     assert user.elo_rating == 1000
 
 def test_game_state_schema():

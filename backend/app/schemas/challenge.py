@@ -11,6 +11,11 @@ class ChallengeCreate(ChallengeBase):
     pass
 
 
+class ChallengeCRUDCreate(ChallengeBase):
+    challenger_username: str
+    room_id: str
+
+
 class ChallengeUpdate(BaseModel):
     status: ChallengeStatus
 

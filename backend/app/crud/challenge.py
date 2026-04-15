@@ -2,14 +2,14 @@ import uuid
 from sqlalchemy.orm import Session
 from app.models.challenge import Challenge
 from app.core.constants import ChallengeStatus
-from app.schemas.challenge import ChallengeCreate
+from app.schemas.challenge import ChallengeCRUDCreate, ChallengeUpdate
 
 
-def create_challenge(db: Session, challenger_username: str, challenged_username: str) -> Challenge:
+def create_challenge(db: Session, challenge_in: ChallengeCRUDCreate) -> Challenge:
     db_challenge = Challenge(
-        challenger_username=challenger_username,
-        challenged_username=challenged_username,
-        room_id=str(uuid.uuid4()),
+        challenger_username=challenge_in.challenger_username,
+        challenged_username=challenge_in.challenged_username,
+        room_id=challenge_in.room_id,
         status=ChallengeStatus.PENDING
     )
     db.add(db_challenge)
@@ -29,10 +29,10 @@ def get_pending_challenges_for_user(db: Session, username: str) -> list[Challeng
     ).all()
 
 
-def update_challenge_status(db: Session, challenge_id: int, status: ChallengeStatus) -> Challenge | None:
+def update_challenge_status(db: Session, challenge_id: int, challenge_in: ChallengeUpdate) -> Challenge | None:
     db_challenge = get_challenge(db, challenge_id)
     if db_challenge:
-        db_challenge.status = status
+        db_challenge.status = challenge_in.status
         db.commit()
         db.refresh(db_challenge)
     return db_challenge

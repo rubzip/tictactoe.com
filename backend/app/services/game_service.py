@@ -6,6 +6,7 @@ from app.core.constants import Player, GameStatus, DifficultyMode, BoardType
 from dataclasses import dataclass, field
 import app.crud.game as crud_game
 from app.schemas.game import GameCreate, GameUpdate
+from app.core.exceptions import BaseAppException, RoomNotFoundException, InvalidMoveException
 
 
 @dataclass
@@ -34,7 +35,11 @@ class GameSession:
             "turn": self.turn,
             "status": self.status,
             "win_line": self.win_line,
-            "player_usernames": {k.value: v for k, v in self.player_usernames.items()}
+            "player_usernames": {k.value: v for k, v in self.player_usernames.items()},
+            "ai_difficulties": {
+                "X": self.ai_player_x_difficulty,
+                "O": self.ai_player_o_difficulty
+            }
         }
 
 
@@ -43,10 +48,12 @@ class GameService:
         # We still keep in-memory sessions for tracking connected players
         self.sessions: Dict[str, GameSession] = {}
 
-    def _sync_with_db(self, db: Session, room_id: str, ai_difficulty: DifficultyMode = None) -> GameSession:
+    def _sync_with_db(self, db: Session, room_id: str, ai_difficulty: DifficultyMode = None, create_if_missing: bool = False) -> GameSession:
         """Fetch from DB and sync with in-memory session."""
         db_game = crud_game.get_game_by_room(db, room_id)
         if not db_game:
+            if not create_if_missing:
+                raise RoomNotFoundException(room_id)
             # Create new game in DB if doesn't exist
             db_game = crud_game.create_game(
                 db, 
@@ -82,31 +89,48 @@ class GameService:
             
         return self.sessions[room_id]
 
+    def get_session(self, db: Session, room_id: str) -> GameSession:
+        return self._sync_with_db(db, room_id, create_if_missing=False)
+
     def get_or_create_session(self, db: Session, room_id: str, ai_difficulty: DifficultyMode = None) -> GameSession:
-        return self._sync_with_db(db, room_id, ai_difficulty=ai_difficulty)
+        return self._sync_with_db(db, room_id, ai_difficulty=ai_difficulty, create_if_missing=True)
 
     def join_game(self, db: Session, room_id: str, client_id: str, username: str = None, as_spectator: bool = False) -> Optional[Player]:
-        session = self.get_or_create_session(db, room_id)
+        session = self.get_session(db, room_id)
         
         if as_spectator:
             session.spectators.add(client_id)
             return None # Spectators don't have a Player role (X/O)
 
-        # If player already in game, return their role
+        # If player already in game (by client_id), return their role
         if client_id in session.players:
             return session.players[client_id]
         
-        # Assign role if possible
+        # If player already in game (by username), re-associate the new client_id
+        if username:
+            for role, u in session.player_usernames.items():
+                if u == username:
+                    session.players[client_id] = role
+                    return role
+        
+        # Assign role if possible (X then O)
         role = None
-        if len(session.players) == 0:
+        if len(session.player_usernames) == 0:
             role = Player.X
-        elif len(session.players) == 1 and not session.is_ai_game:
-            role = Player.O
+        elif len(session.player_usernames) == 1 and not session.is_ai_game:
+            # Avoid assignment if the same user tries to join twice? 
+            # (Though player_usernames check above would catch it)
+            if Player.X not in session.player_usernames:
+                role = Player.X
+            else:
+                role = Player.O
         
         if role:
             session.players[client_id] = role
             if username:
                 session.player_usernames[role] = username
+                # Persist to DB if it's the first time
+                self._update_db_players(db, room_id, session)
             return role
             
         # Room full or already has AI -> Join as spectator automatically if not rejected
@@ -169,8 +193,12 @@ class GameService:
             
             return result
             
+        except BaseAppException:
+            db.rollback()
+            raise
         except Exception as e:
-            return {"error": str(e)}
+            db.rollback()
+            raise BaseAppException(f"Internal game error: {str(e)}")
 
     def _update_db_state(self, db: Session, room_id: str, session: GameSession):
         """Helper to sync current session state to DB."""
@@ -182,6 +210,17 @@ class GameService:
                 turn=session.turn,
                 status=session.status,
                 win_line=session.win_line
+            )
+        )
+
+    def _update_db_players(self, db: Session, room_id: str, session: GameSession):
+        """Helper to sync player usernames to DB."""
+        crud_game.update_game(
+            db,
+            room_id=room_id,
+            game_in=GameUpdate(
+                player_x_username=session.player_usernames.get(Player.X),
+                player_o_username=session.player_usernames.get(Player.O)
             )
         )
 

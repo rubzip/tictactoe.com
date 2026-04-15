@@ -6,6 +6,7 @@ from app import crud
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.users import User
+from app.core.exceptions import NotificationNotFoundException
 from app.schemas.notification import Notification, NotificationList, NotificationUpdate
 
 router = APIRouter(
@@ -38,7 +39,7 @@ def mark_notification_read(
     """
     # Verify ownership indirectly by getting it first? 
     # Or just let CRUD handle it but it's better to check.
-    success = crud.notification.mark_as_read(db, notification_id=notification_id)
+    success = crud.notification.mark_as_read(db, notification_id=notification_id, username=current_user.username)
     if not success:
-        raise HTTPException(status_code=404, detail="Notification not found")
+        raise NotificationNotFoundException(notification_id)
     return {"status": "success"}

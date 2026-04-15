@@ -1,16 +1,17 @@
 import pytest
-from app.services.ranking import EloEngine
+from app.game_logic.elo_engine import EloEngine
+from app.core.constants import GameStatus
 
 
 def test_compute_draw():
     r1, r2 = 1000, 1000
-    new_r1, new_r2 = EloEngine.compute(r1, r2, 0.5)
+    new_r1, new_r2 = EloEngine.compute(r1, r2, GameStatus.DRAW)
     assert new_r1 == 1000
     assert new_r2 == 1000
 
 def test_compute_win():
     r1, r2 = 1000, 1000
-    new_r1, new_r2 = EloEngine.compute(r1, r2, 1.0)
+    new_r1, new_r2 = EloEngine.compute(r1, r2, GameStatus.WIN_X)
     assert new_r1 > 1000
     assert new_r2 < 1000
     assert new_r1 + new_r2 == 2000

@@ -7,6 +7,7 @@ from app import crud
 from app.core.database import get_db
 from app.core.config import settings
 from app.core.security import create_access_token, verify_password
+from app.core.exceptions import UserAlreadyExistsException, InvalidCredentialsException
 from app.schemas.user import UserCreate, User as UserSchema
 from app.schemas.auth import Token
 
@@ -21,17 +22,11 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     # Check if user already exists
     user = crud.user.get_user(db, username=user_in.username)
     if user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already registered"
-        )
+        raise UserAlreadyExistsException("Username already registered")
 
     user = crud.user.get_user_by_email(db, email=user_in.email)
     if user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
+        raise UserAlreadyExistsException("Email already registered")
     
     # Create new user
     return crud.user.create_user(db, user_in=user_in)
@@ -42,11 +37,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     # Authenticate user
     user = crud.user.get_user(db, username=form_data.username)
     if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise InvalidCredentialsException()
     
     # Create access token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)

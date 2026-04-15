@@ -11,6 +11,7 @@ from app.models.users import User
 import json
 
 from app.core.config import settings
+from app.core.exceptions import BaseAppException, RoomNotFoundException
 from jose import jwt, JWTError
 
 router = APIRouter()
@@ -40,19 +41,11 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str, token: str = 
     db = SessionLocal()
     user = authenticate_websocket(db, token)
     
-    if not user:
-        await websocket.accept()
-        await websocket.send_json({"type": MessageType.ERROR, "payload": "Authentication required"})
-        await websocket.close(code=4001)
-        db.close()
-        return
-
+    # We no longer close the connection if user is missing.
+    # We accept the connection for anonymous users too.
+    await manager.connect(websocket, client_id)
+    room_id = None
     try:
-
-        # 2. Connect
-        await manager.connect(websocket, client_id)
-        room_id = None
-
         # 3. Message Loop
         while True:
             data = await websocket.receive_text()
@@ -64,7 +57,8 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str, token: str = 
                 if msg_type == MessageType.JOIN:
                     room_id = payload.get("room_id")
                     if room_id:
-                        player_role = game_service.join_game(db, room_id, client_id, username=user.username)
+                        effective_username = user.username if user else None
+                        player_role = game_service.join_game(db, room_id, client_id, username=effective_username)
                         await manager.join_room(client_id, room_id)
                         
                         session = game_service.get_or_create_session(db, room_id)
@@ -75,11 +69,11 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str, token: str = 
                                 "status": "success", 
                                 "room_id": room_id,
                                 "role": player_role,
-                                "ai_player_x_difficulty": session.ai_player_x_difficulty,
-                                "ai_player_o_difficulty": session.ai_player_o_difficulty
+                                "game_state": session.to_summary_dict()
                             }
                         }, client_id)
                         
+                        # Also broadcast that someone joined
                         await broadcast_game_state(room_id, session)
 
                 elif msg_type == MessageType.MOVE:
@@ -109,27 +103,38 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str, token: str = 
                     
                     if room_id:
                         # Persist message
+                        from app.schemas.chat import ChatCreate
+                        effective_username = user.username if user else f"Guest_{client_id[:4]}"
                         crud.chat.create_chat_message(
                             db, 
-                            room_id=room_id, 
-                            username=user.username, 
-                            message=payload.get("message")
+                            chat_in=ChatCreate(
+                                room_id=room_id, 
+                                username=effective_username, 
+                                message=payload.get("message")
+                            )
                         )
                         
                         await manager.broadcast_to_room({
                             "type": MessageType.CHAT,
                             "payload": {
                                 "client_id": client_id,
-                                "username": user.username,
+                                "username": effective_username,
                                 "message": payload.get("message")
                             }
                         }, room_id)
 
                 elif msg_type == MessageType.QUEUE_JOIN:
+                    if not user:
+                        await manager.send_personal_message({
+                            "type": MessageType.ERROR,
+                            "payload": "Authentication required for matchmaking"
+                        }, client_id)
+                        continue
+
                     await matchmaking_service.add_to_queue(
                         username=user.username,
                         client_id=client_id,
-                        elo=user.elo
+                        elo=int(user.elo_rating)
                     )
                     await manager.send_personal_message({
                         "type": MessageType.QUEUE_JOIN,
@@ -137,7 +142,8 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str, token: str = 
                     }, client_id)
 
                 elif msg_type == MessageType.QUEUE_LEAVE:
-                    await matchmaking_service.remove_from_queue(user.username)
+                    if user:
+                        await matchmaking_service.remove_from_queue(user.username)
                     await manager.send_personal_message({
                         "type": MessageType.QUEUE_LEAVE,
                         "payload": {"status": "left"}
@@ -146,7 +152,8 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str, token: str = 
                 elif msg_type == MessageType.SPECTATE:
                     room_id = payload.get("room_id")
                     if room_id:
-                        game_service.join_game(db, room_id, client_id, username=user.username, as_spectator=True)
+                        effective_username = user.username if user else None
+                        game_service.join_game(db, room_id, client_id, username=effective_username, as_spectator=True)
                         await manager.join_room(client_id, room_id)
                         
                         session = game_service.get_or_create_session(db, room_id)
@@ -164,6 +171,11 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str, token: str = 
                     "type": MessageType.ERROR,
                     "payload": "Invalid JSON"
                 }, client_id)
+            except BaseAppException as e:
+                await manager.send_personal_message({
+                    "type": MessageType.ERROR,
+                    "payload": e.message
+                }, client_id)
 
     except WebSocketDisconnect:
         manager.disconnect(client_id)
@@ -173,7 +185,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str, token: str = 
             import asyncio
             asyncio.create_task(manager.broadcast_to_room({
                 "type": MessageType.ERROR,
-                "payload": f"Player {user.username} has disconnected"
+                "payload": f"Player {user.username if user else client_id} has disconnected"
             }, room_id))
     except Exception as e:
         print(f"WebSocket Error: {e}")

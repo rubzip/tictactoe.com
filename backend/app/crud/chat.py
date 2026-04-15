@@ -2,11 +2,14 @@ from sqlalchemy.orm import Session
 from app.models.chat import Chat
 
 
-def create_chat_message(db: Session, room_id: str, username: str, message: str) -> Chat:
+from app.schemas.chat import ChatCreate
+
+
+def create_chat_message(db: Session, chat_in: ChatCreate) -> Chat:
     db_chat = Chat(
-        room_id=room_id,
-        username=username,
-        message=message
+        room_id=chat_in.room_id,
+        username=chat_in.username,
+        message=chat_in.message
     )
     db.add(db_chat)
     db.commit()

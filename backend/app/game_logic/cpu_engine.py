@@ -1,5 +1,6 @@
 from typing import Type, Optional
 from app.core.constants import DifficultyMode, Player
+from app.core.exceptions import InvalidDifficultyException
 from .game_engine import TicTacToeEngine
 from .strategies import MoveType, Strategy, RandomStrategy, CustomStrategy, MinimaxStrategy
 
@@ -8,10 +9,10 @@ class EasyCPU(RandomStrategy):
     pass
 
 class MediumCPU(MinimaxStrategy):
-    MAX_DEPTH = 2
+    MAX_DEPTH = 4
 
-class HardCPU(CustomStrategy):
-    pass
+class HardCPU(MinimaxStrategy):
+    MAX_DEPTH = 6
 
 class PerfectCPU(MinimaxStrategy):
     MAX_DEPTH = 9
@@ -26,7 +27,7 @@ def get_strategy(difficulty: DifficultyMode) -> Type[Strategy]:
         return HardCPU
     if difficulty == DifficultyMode.EXPERT:
         return PerfectCPU
-    raise ValueError(f"Invalid difficulty: {difficulty}")
+    raise InvalidDifficultyException(str(difficulty))
 
 def get_next_cpu_move(board, difficulty: DifficultyMode, turn: Optional[Player] = None) -> MoveType:
     """

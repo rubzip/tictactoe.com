@@ -30,3 +30,23 @@ def change_password(db: Session, db_user: User, new_password: str) -> User:
     db.commit()
     db.refresh(db_user)
     return db_user
+
+
+def update_user(db: Session, db_user: User, user_in: UserUpdate | dict) -> User:
+    if isinstance(user_in, dict):
+        update_data = user_in
+    else:
+        update_data = user_in.model_dump(exclude_unset=True)
+    
+    if "password" in update_data and update_data["password"]:
+        update_data["hashed_password"] = get_password_hash(update_data["password"])
+        del update_data["password"]
+    
+    for field, value in update_data.items():
+        if hasattr(db_user, field):
+            setattr(db_user, field, value)
+            
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user

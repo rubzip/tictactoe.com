@@ -8,6 +8,7 @@ from app.core.constants import ChallengeStatus
 from app.schemas.challenge import ChallengeCreate, ChallengeInfo
 from app.core.database import get_db
 from app.services.challenge_service import challenge_service
+from app.core.exceptions import ChallengeNotFoundException, ValidationException
 
 router = APIRouter(
     prefix="/challenges",
@@ -24,17 +25,11 @@ def create_challenge(
     """
     Challenge another player.
     """
-    try:
-        return challenge_service.create_challenge(
-            db, 
-            challenger_username=current_user.username, 
-            challenged_username=challenge_in.challenged_username
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+    return challenge_service.create_challenge(
+        db, 
+        challenger_username=current_user.username, 
+        challenged_username=challenge_in.challenged_username
+    )
 
 
 @router.get("/pending", response_model=List[ChallengeInfo])
@@ -59,16 +54,10 @@ def accept_challenge(
     """
     challenge = challenge_service.get_challenge(db, challenge_id)
     if not challenge or challenge.challenged_username != current_user.username:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Challenge not found"
-        )
+        raise ChallengeNotFoundException(challenge_id)
     
     if challenge.status != ChallengeStatus.PENDING:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Challenge is already {challenge.status.value}"
-        )
+        raise ValidationException(f"Challenge is already {challenge.status.value}")
     
     # Update challenge status (Service handles game initialization if status is ACCEPTED)
     updated_challenge = challenge_service.update_challenge_status(db, challenge_id, ChallengeStatus.ACCEPTED)
