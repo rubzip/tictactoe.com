@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     # These will be loaded from .env automatically by pydantic-settings
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
+    SESSION_SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080
     
     # Use Union to allow the environment string "url1,url2" to not fail initial parsing
@@ -30,6 +31,8 @@ class Settings(BaseSettings):
         return v
     
     SQLALCHEMY_DATABASE_URL: str = "sqlite:///./sql_app.db"
+    SYNC_DATABASE_URL: str = "sqlite:///./sql_app.db"
+    ASYNC_DATABASE_URL: str = "sqlite+aiosqlite:///./sql_app.db"
 
     model_config = SettingsConfigDict(
         env_file=".env",
